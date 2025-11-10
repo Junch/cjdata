@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68", "wheel", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cjdata"
+dynamic = ["version"]
+description = "Utilities for building and querying local stock data from xtquant and baostock sources."
+requires-python = ">=3.10"
+dependencies = [
+    "pandas>=2.0",
+    "numpy>=1.23",
+]
+
+[project.optional-dependencies]
+baostock = ["baostock>=0.8.8"]
+progress = ["tqdm>=4.60"]
+talib = ["TA-Lib>=0.4"]
+all = [
+    "baostock>=0.8.8",
+    "tqdm>=4.60",
+    "TA-Lib>=0.4",
+]
+dev = [
+    "pytest>=7.0",
+]
+
+[project.scripts]
+cjdata = "cjdata.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["cjdata"]
+
+[tool.setuptools_scm]
+root = "."
+version_scheme = "post-release"
+local_scheme = "node-and-date"

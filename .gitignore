@@ -1,0 +1,4 @@
+__pycache__/
+cjdata.egg-info/
+dist/
+data/
