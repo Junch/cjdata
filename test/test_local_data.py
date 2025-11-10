@@ -2,7 +2,7 @@
 import os
 import pytest
 import pandas as pd
-from cjdata.local_data import LocalData, CodeFormat
+from cjdata import LocalData, CodeFormat
 
 
 @pytest.fixture
