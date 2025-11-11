@@ -54,6 +54,26 @@ def test_get_daily_data(local_data):
         assert df.index.name == "trade_date" or "trade_date" in df.columns
 
 
+def test_get_daily_index_adjustment(local_data):
+    """Test that index data is identical for qfq and hfq adjustments."""
+    # Indices like 000300.SH should have identical data regardless of adjustment type
+    df_qfq = local_data.get_daily("000300.SH", "20240101", "20240131", adj="qfq")
+    df_hfq = local_data.get_daily("000300.SH", "20240101", "20240131", adj="hfq")
+    
+    # Both should be DataFrames
+    assert isinstance(df_qfq, pd.DataFrame)
+    assert isinstance(df_hfq, pd.DataFrame)
+    
+    # If data exists, verify they are identical
+    if not df_qfq.empty and not df_hfq.empty:
+        # Same shape
+        assert df_qfq.shape == df_hfq.shape
+        # Same dates
+        assert df_qfq.index.equals(df_hfq.index)
+        # Same values for price columns
+        pd.testing.assert_frame_equal(df_qfq, df_hfq)
+
+
 def test_get_weekly_data(local_data):
     """Test resampling daily data to weekly."""
     df = local_data.get_weekly("000001.SZ", "20240101", "20240331", adj="qfq")

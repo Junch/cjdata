@@ -79,7 +79,7 @@ class LocalData(FinData):
         if self._table_exists("daily_k_data"):
             query = (
                 "SELECT date AS trade_date, open, high, low, close, preclose AS pre_close, volume "
-                "FROM daily_k_data WHERE code=? AND date BETWEEN ? AND ? AND adjustflag=? "
+                "FROM daily_k_data WHERE code=? AND date BETWEEN ? AND ? AND (code like '000%.SH' OR code like '399%.SZ' OR adjustflag = ?) "
                 "ORDER BY date"
             )
             df = pd.read_sql(
