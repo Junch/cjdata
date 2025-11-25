@@ -60,6 +60,13 @@ class XtQuantPipeline:
         return total
 
     def update_sector_membership(self) -> int:
+        # 首次运行需要下载板块数据
+        # xtdata.download_sector_data()
+
+        # https://www.xuntou.net/forum.php?mod=viewthread&tid=1785&mobile=no
+        client = xtdata.get_client()
+        client.down_all_sector_data()
+        
         sectors = xtdata.get_sector_list()
         total = 0
         for sector in sectors:
