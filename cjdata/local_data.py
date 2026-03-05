@@ -197,7 +197,7 @@ class LocalData(FinData):
         if self._table_exists("daily_k_data"):
             flag = 1 if adj == "hfq" else 2
             query = (
-                "SELECT dk.code AS stock_code, dk.date AS trade_date, dk.open, dk.high, dk.low, dk.close, dk.volume, dk.turn, dk.peTTM "
+                "SELECT dk.code AS stock_code, dk.date AS trade_date, dk.open, dk.high, dk.low, dk.close, dk.volume, dk.amount, dk.turn, dk.tradestatus, dk.peTTM "
                 "FROM daily_k_data dk JOIN sector_stocks ss ON dk.code = ss.stock_code "
                 "WHERE ss.sector_name=? AND dk.date BETWEEN ? AND ? AND dk.adjustflag=? ORDER BY dk.code, dk.date"
             )
