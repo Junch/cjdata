@@ -67,6 +67,8 @@ class CJDataBuilder:
                 try:
                     xt_logger = self.logger.getChild("xtquant")
                     xt_pipeline = XtQuantPipeline(conn, xt_logger)
+                    xt_pipeline.update_sector_membership()
+                    xt_pipeline.update_stock_basic()
                     etf_codes = xt_pipeline.default_etf_codes()
                     if etf_codes:
                         xt_logger.info("Updating ETF daily data for %s codes", len(etf_codes))

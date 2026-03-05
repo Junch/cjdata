@@ -39,6 +39,7 @@ class FinData(ABC):
     def get_daily(self, stock_code: str, start_date: str, end_date: str) -> pd.DataFrame:
         raise NotImplementedError
 
+    @abstractmethod
     def close(self) -> None:
         raise NotImplementedError
 
@@ -46,7 +47,6 @@ class FinData(ABC):
 @dataclass
 class _AdjConfig:
     flag: int
-    table: str
 
 
 class LocalData(FinData):
@@ -73,12 +73,12 @@ class LocalData(FinData):
 
         start = to_yyyymmdd(start_date)
         end = to_yyyymmdd(end_date)
-        mapping = {"hfq": _AdjConfig(1, "daily_k_data"), "qfq": _AdjConfig(2, "daily_k_data")}
+        mapping = {"hfq": _AdjConfig(1), "qfq": _AdjConfig(2)}
         config = mapping[adj]
 
         if self._table_exists("daily_k_data"):
             query = (
-                "SELECT date AS trade_date, open, high, low, close, preclose AS pre_close, volume "
+                "SELECT date AS trade_date, open, high, low, close, preclose AS pre_close, volume, turn, peTTM "
                 "FROM daily_k_data WHERE code=? AND date BETWEEN ? AND ? AND (code like '000%.SH' OR code like '399%.SZ' OR adjustflag = ?) "
                 "ORDER BY date"
             )
@@ -88,14 +88,7 @@ class LocalData(FinData):
                 params=(stock_code, start, end, config.flag),
             )
         else:
-            fallback_table = f"daily_{adj}"
-            if not self._table_exists(fallback_table):
-                return pd.DataFrame()
-            query = (
-                "SELECT trade_date, open, high, low, close, pre_close, volume "
-                f"FROM {fallback_table} WHERE stock_code=? AND trade_date BETWEEN ? AND ? ORDER BY trade_date"
-            )
-            df = pd.read_sql(query, self.conn, params=(stock_code, start, end))
+            raise ValueError("daily_k_data table does not exist in the database.")
 
         if df.empty:
             return df
@@ -114,7 +107,10 @@ class LocalData(FinData):
                 "high": "max",
                 "low": "min",
                 "close": "last",
+                "pre_close": "first",
                 "volume": "sum",
+                "turn": "sum",
+                "peTTM": "last",
             }
         )
         return weekly.dropna()
@@ -153,17 +149,13 @@ class LocalData(FinData):
         if self._table_exists("daily_k_data"):
             flag = 1 if adj == "hfq" else 2
             query = (
-                "SELECT close FROM daily_k_data WHERE code=? AND adjustflag=? AND date <= ? ORDER BY date DESC LIMIT 1"
+                "SELECT close FROM daily_k_data "
+                "WHERE code=? AND date <= ? AND (code LIKE '000%.SH' OR code LIKE '399%.SZ' OR adjustflag=?) "
+                "ORDER BY date DESC LIMIT 1"
             )
-            df = pd.read_sql(query, self.conn, params=(stock_code, flag, target_date))
+            df = pd.read_sql(query, self.conn, params=(stock_code, target_date, flag))
         else:
-            table = f"daily_{adj}"
-            if not self._table_exists(table):
-                return 0.0
-            query = (
-                f"SELECT close FROM {table} WHERE stock_code=? AND trade_date <= ? ORDER BY trade_date DESC LIMIT 1"
-            )
-            df = pd.read_sql(query, self.conn, params=(stock_code, target_date))
+            raise ValueError("daily_k_data table does not exist in the database.")
 
         if df.empty:
             return 0.0
@@ -205,21 +197,13 @@ class LocalData(FinData):
         if self._table_exists("daily_k_data"):
             flag = 1 if adj == "hfq" else 2
             query = (
-                "SELECT dk.code AS stock_code, dk.date AS trade_date, dk.open, dk.high, dk.low, dk.close, dk.volume "
+                "SELECT dk.code AS stock_code, dk.date AS trade_date, dk.open, dk.high, dk.low, dk.close, dk.volume, dk.turn, dk.peTTM "
                 "FROM daily_k_data dk JOIN sector_stocks ss ON dk.code = ss.stock_code "
                 "WHERE ss.sector_name=? AND dk.date BETWEEN ? AND ? AND dk.adjustflag=? ORDER BY dk.code, dk.date"
             )
             df = pd.read_sql(query, self.conn, params=(sector_name, start, end, flag))
         else:
-            table = f"daily_{adj}"
-            if not self._table_exists(table):
-                return pd.DataFrame()
-            query = (
-                f"SELECT dq.stock_code, dq.trade_date, dq.open, dq.high, dq.low, dq.close, dq.volume "
-                f"FROM {table} dq JOIN sector_stocks ss ON dq.stock_code = ss.stock_code "
-                "WHERE ss.sector_name=? AND dq.trade_date BETWEEN ? AND ? ORDER BY dq.stock_code, dq.trade_date"
-            )
-            df = pd.read_sql(query, self.conn, params=(sector_name, start, end))
+            raise ValueError("daily_k_data table does not exist in the database.")
 
         if df.empty:
             return df
@@ -258,19 +242,19 @@ class LocalData(FinData):
         if df.empty:
             return df
         period_map = {
-            "1m": "1T",
-            "5m": "5T",
-            "15m": "15T",
-            "30m": "30T",
-            "45m": "45T",
-            "60m": "60T",
-            "1h": "1H",
-            "4h": "4H",
+            "1m": "1min",
+            "5m": "5min",
+            "15m": "15min",
+            "30m": "30min",
+            "45m": "45min",
+            "60m": "60min",
+            "1h": "1h",
+            "4h": "4h",
             "1d": "1D",
         }
         if target_period == "1m":
             return df
-        freq = period_map.get(target_period, "15T")
+        freq = period_map.get(target_period, "15min")
         resampled = df.resample(freq).agg(
             {
                 "open": "first",
@@ -337,24 +321,26 @@ class LocalData(FinData):
         return df
 
     def search_stocks(self, search_str: str, limit: int = 20) -> list[tuple[str, str]]:
+        escaped = search_str.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        pattern = f"%{escaped}%"
         df = pd.read_sql(
-            "SELECT stock_code, stock_name FROM stock_basic WHERE stock_code LIKE ? OR stock_name LIKE ? LIMIT ?",
+            "SELECT stock_code, stock_name FROM stock_basic WHERE stock_code LIKE ? ESCAPE '\\' OR stock_name LIKE ? ESCAPE '\\' LIMIT ?",
             self.conn,
-            params=(f"%{search_str}%", f"%{search_str}%", limit),
+            params=(pattern, pattern, limit),
         )
         return list(df.itertuples(index=False, name=None))
 
     def get_stock_returns(self, start_date: str, end_date: str, limit: int = 100) -> pd.DataFrame:
         start_ts = int(pd.to_datetime(start_date).timestamp() * 1000)
         end_ts = int(pd.to_datetime(end_date).timestamp() * 1000)
-        query = f"""
-            WITH 
+        query = """
+            WITH
             start_trade_date AS (
-                SELECT trade_date FROM trading_days WHERE market = 'SH' AND trade_date <= {start_ts}
+                SELECT trade_date FROM trading_days WHERE market = 'SH' AND trade_date <= ?
                 ORDER BY trade_date DESC LIMIT 1
             ),
             end_trade_date AS (
-                SELECT trade_date FROM trading_days WHERE market = 'SH' AND trade_date <= {end_ts}
+                SELECT trade_date FROM trading_days WHERE market = 'SH' AND trade_date <= ?
                 ORDER BY trade_date DESC LIMIT 1
             )
             SELECT t1.stock_code, b.stock_name, t1.close AS start_price, t2.close AS end_price,
@@ -369,9 +355,9 @@ class LocalData(FinData):
             WHERE t1.date = (SELECT strftime('%Y%m%d', datetime(s.trade_date/1000, 'unixepoch')))
               AND t2.date = (SELECT strftime('%Y%m%d', datetime(e.trade_date/1000, 'unixepoch')))
             ORDER BY return_rate DESC
-            LIMIT {limit}
+            LIMIT ?
         """
-        df = pd.read_sql(query, self.conn)
+        df = pd.read_sql(query, self.conn, params=(start_ts, end_ts, limit))
         return df
 
     def get_stock_code_with_suffix(self, raw_code: str) -> str:
@@ -455,7 +441,7 @@ class LocalData(FinData):
             return None
         ma5_slope = float(np.nanmean(np.diff(ma5[-3:]))) if len(ma5) >= 3 else 0.0
         ma20_slope = float(np.nanmean(np.diff(ma20[-5:]))) if len(ma20) >= 5 else 0.0
-        trend = self.determine_trend(stock_code, end_date, period, adjust)
+        trend = self.calculate_trend(df)
         return {
             "trend": trend.value if trend else None,
             "ma5": float(ma5[-1]),

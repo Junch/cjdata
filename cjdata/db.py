@@ -46,6 +46,7 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         UNIQUE(date, code, adjustflag)
     );
     """,
+    "CREATE INDEX IF NOT EXISTS idx_daily_k_code_date ON daily_k_data(code, date, adjustflag);",
     """
     CREATE TABLE IF NOT EXISTS sector_stocks (
         sector_name TEXT NOT NULL,
@@ -111,6 +112,9 @@ def connection(path: str) -> Iterator[sqlite3.Connection]:
     try:
         yield conn
         conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
     finally:
         conn.close()
 
