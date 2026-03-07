@@ -1,4 +1,5 @@
 """Data acquisition routines backed by xtquant."""
+
 from __future__ import annotations
 
 import logging
@@ -22,16 +23,27 @@ if TYPE_CHECKING:  # pragma: no cover
 
 try:  # pragma: no cover - optional dependency
     from xtquant import xtdata as _xtdata  # type: ignore
+
     xtdata = _xtdata
 except ImportError:  # pragma: no cover
     xtdata = None
 
 _LOGGER = logging.getLogger(__name__)
 
+# Mapping from xtquant dividend_type to baostock-compatible adjustflag integer.
+# adjustflag: 1 = 后复权, 2 = 前复权, 3 = 未复权
+_DIVIDEND_TYPE_TO_ADJUSTFLAG: dict[str, int] = {
+    "back_ratio": 1,  # 后复权
+    "front_ratio": 2,  # 前复权
+    "none": 3,  # 未复权
+}
+
 
 def _require_xtquant() -> None:
     if xtdata is None:  # pragma: no cover
-        raise RuntimeError("xtquant is not installed. Install xtquant to use this feature.")
+        raise RuntimeError(
+            "xtquant is not installed. Install xtquant to use this feature."
+        )
 
 
 def _to_epoch_ms(value: Any) -> int:
@@ -55,7 +67,9 @@ class XtQuantPipeline:
             if not dates:
                 continue
             rows = [(market, _to_epoch_ms(day)) for day in dates]
-            total += insert_ignore(self.conn, "trading_days", ("market", "trade_date"), rows)
+            total += insert_ignore(
+                self.conn, "trading_days", ("market", "trade_date"), rows
+            )
         self.conn.commit()
         return total
 
@@ -66,17 +80,21 @@ class XtQuantPipeline:
         # https://www.xuntou.net/forum.php?mod=viewthread&tid=1785&mobile=no
         client = xtdata.get_client()
         client.down_all_sector_data()
-        
+
         sectors = xtdata.get_sector_list()
         total = 0
         for sector in sectors:
             stocks = xtdata.get_stock_list_in_sector(sector)
             rows = [(sector, code) for code in stocks]
-            total += insert_ignore(self.conn, "sector_stocks", ("sector_name", "stock_code"), rows)
+            total += insert_ignore(
+                self.conn, "sector_stocks", ("sector_name", "stock_code"), rows
+            )
         self.conn.commit()
         return total
 
-    def update_stock_basic(self, sectors: Sequence[str] = ("沪深A股", "沪深指数", "沪深基金")) -> int:
+    def update_stock_basic(
+        self, sectors: Sequence[str] = ("沪深A股", "沪深指数", "沪深基金")
+    ) -> int:
         cursor = self.conn.execute(
             "SELECT DISTINCT stock_code FROM sector_stocks WHERE sector_name IN ({})".format(
                 ",".join("?" for _ in sectors)
@@ -113,14 +131,19 @@ class XtQuantPipeline:
             ),
             conflict_columns=("stock_code",),
         )
-        updated = upsert_rows(self.conn, spec, rows, update_columns=(
-            "stock_name",
-            "market",
-            "board",
-            "listed_date",
-            "total_volume",
-            "float_volume",
-        ))
+        updated = upsert_rows(
+            self.conn,
+            spec,
+            rows,
+            update_columns=(
+                "stock_name",
+                "market",
+                "board",
+                "listed_date",
+                "total_volume",
+                "float_volume",
+            ),
+        )
         self.conn.commit()
         return updated
 
@@ -129,8 +152,19 @@ class XtQuantPipeline:
         codes: Sequence[str],
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
-        dividend_type: str = "back_ratio",
+        dividend_types: Sequence[str] = ("back_ratio", "none"),
     ) -> int:
+        """Download daily K-line data for given codes.
+
+        Parameters
+        ----------
+        dividend_types : sequence of str
+            XtQuant dividend adjustment types to download.
+            ``"back_ratio"`` = 后复权 (adjustflag 1),
+            ``"front_ratio"`` = 前复权 (adjustflag 2),
+            ``"none"`` = 未复权 (adjustflag 3).
+            Defaults to ``("back_ratio", "none")``.
+        """
         total = 0
         start = to_yyyymmdd(start_date or "20080101")
         end = to_yyyymmdd(end_date) if end_date else ""
@@ -145,57 +179,61 @@ class XtQuantPipeline:
             else codes
         )
         for code in iterable:
-            rows = self._download_single(code, start, end, dividend_type)
-            if not rows:
-                continue
-            spec = UpsertSpec(
-                table="daily_k_data",
-                columns=(
-                    "date",
-                    "code",
-                    "open",
-                    "high",
-                    "low",
-                    "close",
-                    "preclose",
-                    "volume",
-                    "amount",
-                    "adjustflag",
-                    "turn",
-                    "tradestatus",
-                    "pctChg",
-                    "peTTM",
-                    "pbMRQ",
-                    "psTTM",
-                    "pcfNcfTTM",
-                    "isST",
-                    "source",
-                ),
-                conflict_columns=("date", "code", "adjustflag"),
-            )
-            total += upsert_rows(
-                self.conn,
-                spec,
-                rows,
-                update_columns=(
-                    "open",
-                    "high",
-                    "low",
-                    "close",
-                    "preclose",
-                    "volume",
-                    "amount",
-                    "turn",
-                    "tradestatus",
-                    "pctChg",
-                    "peTTM",
-                    "pbMRQ",
-                    "psTTM",
-                    "pcfNcfTTM",
-                    "isST",
-                    "source",
-                ),
-            )
+            for dividend_type in dividend_types:
+                adjustflag = _DIVIDEND_TYPE_TO_ADJUSTFLAG.get(dividend_type, 1)
+                rows = self._download_single(
+                    code, start, end, dividend_type, adjustflag
+                )
+                if not rows:
+                    continue
+                spec = UpsertSpec(
+                    table="daily_k_data",
+                    columns=(
+                        "date",
+                        "code",
+                        "open",
+                        "high",
+                        "low",
+                        "close",
+                        "preclose",
+                        "volume",
+                        "amount",
+                        "adjustflag",
+                        "turn",
+                        "tradestatus",
+                        "pctChg",
+                        "peTTM",
+                        "pbMRQ",
+                        "psTTM",
+                        "pcfNcfTTM",
+                        "isST",
+                        "source",
+                    ),
+                    conflict_columns=("date", "code", "adjustflag"),
+                )
+                total += upsert_rows(
+                    self.conn,
+                    spec,
+                    rows,
+                    update_columns=(
+                        "open",
+                        "high",
+                        "low",
+                        "close",
+                        "preclose",
+                        "volume",
+                        "amount",
+                        "turn",
+                        "tradestatus",
+                        "pctChg",
+                        "peTTM",
+                        "pbMRQ",
+                        "psTTM",
+                        "pcfNcfTTM",
+                        "isST",
+                        "source",
+                    ),
+                )
         self.conn.commit()
         return total
 
@@ -212,8 +250,11 @@ class XtQuantPipeline:
         start_date: str,
         end_date: str,
         dividend_type: str,
+        adjustflag: int,
     ):
-        start_dt = self._next_download_date(stock_code, start_date)
+        start_dt = self._next_download_date(stock_code, start_date, adjustflag)
+        if end_date and start_dt > end_date:
+            return []
         try:
             xtdata.download_history_data(
                 stock_code=stock_code,
@@ -270,8 +311,10 @@ class XtQuantPipeline:
             return []
         frame["date"] = index_series.dt.strftime("%Y%m%d")
         frame["code"] = stock_code
-        frame = frame.rename(columns={"preClose": "preclose", "tradeStatus": "tradestatus"})
-        frame["adjustflag"] = 1
+        frame = frame.rename(
+            columns={"preClose": "preclose", "tradeStatus": "tradestatus"}
+        )
+        frame["adjustflag"] = adjustflag
         frame["source"] = "xtquant"
         columns = [
             "date",
@@ -309,10 +352,10 @@ class XtQuantPipeline:
             return "北交所"
         return detail.get("InstrumentStatus")
 
-    def _next_download_date(self, code: str, start_date: str) -> str:
+    def _next_download_date(self, code: str, start_date: str, adjustflag: int) -> str:
         cursor = self.conn.execute(
-            "SELECT MAX(date) FROM daily_k_data WHERE code=? AND adjustflag=1",
-            (code,),
+            "SELECT MAX(date) FROM daily_k_data WHERE code=? AND adjustflag=?",
+            (code, adjustflag),
         )
         latest = cursor.fetchone()[0]
         if not latest:
