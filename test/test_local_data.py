@@ -1,4 +1,5 @@
 """Tests for LocalData read-only access."""
+
 import os
 import pytest
 import pandas as pd
@@ -59,11 +60,11 @@ def test_get_daily_index_adjustment(local_data):
     # Indices like 000300.SH should have identical data regardless of adjustment type
     df_qfq = local_data.get_daily("000300.SH", "20240101", "20240131", adj="qfq")
     df_hfq = local_data.get_daily("000300.SH", "20240101", "20240131", adj="hfq")
-    
+
     # Both should be DataFrames
     assert isinstance(df_qfq, pd.DataFrame)
     assert isinstance(df_hfq, pd.DataFrame)
-    
+
     # If data exists, verify they are identical
     if not df_qfq.empty and not df_hfq.empty:
         # Same shape
@@ -84,9 +85,9 @@ def test_get_weekly_data(local_data):
 
 def test_get_price(local_data):
     """Test retrieving closing price for a specific date."""
-    price = local_data.get_price("000001.SZ", "20240131", adj="qfq")
+    price = local_data.get_price("000001.SZ", "20240131", adj="hfq")
     assert isinstance(price, float)
-    assert price >= 0.0
+    assert price > 0.0
 
 
 def test_search_stocks(local_data):
@@ -100,11 +101,27 @@ def test_search_stocks(local_data):
 
 def test_get_stock_list_in_sector(local_data):
     """Test retrieving stock codes within a sector."""
-    codes = local_data.get_stock_list_in_sector("沪深A股", format=CodeFormat.MARKET_SUFFIX)
+    codes = local_data.get_stock_list_in_sector(
+        "沪深A股", format=CodeFormat.MARKET_SUFFIX
+    )
     assert isinstance(codes, list)
     # Allow empty if sector doesn't exist
     for code in codes:
         assert isinstance(code, str)
+
+
+def test_get_stock_data_frame_in_sector(local_data):
+    """Test retrieving stock data for all stocks in a sector."""
+    df = local_data.get_stock_data_frame_in_sector(
+        "沪深300", "20240101", "20240131", adj="hfq"
+    )
+    assert isinstance(df, pd.DataFrame)
+    assert not df.empty
+    assert "stock_code" in df.columns
+    assert "trade_date" in df.columns
+    assert "open" in df.columns
+    assert "close" in df.columns
+    assert "volume" in df.columns
 
 
 def test_get_etf_sector_list(local_data):
