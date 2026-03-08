@@ -78,7 +78,7 @@ class LocalData(FinData):
 
         if self._table_exists("daily_k_data"):
             query = (
-                "SELECT date AS trade_date, open, high, low, close, preclose AS pre_close, volume, turn, peTTM "
+                "SELECT date AS trade_date, open, high, low, close, preclose, volume, turn, peTTM "
                 "FROM daily_k_data WHERE code=? AND date BETWEEN ? AND ? AND (code like '000%.SH' OR code like '399%.SZ' OR adjustflag = ?) "
                 "ORDER BY date"
             )
@@ -107,7 +107,7 @@ class LocalData(FinData):
                 "high": "max",
                 "low": "min",
                 "close": "last",
-                "pre_close": "first",
+                "preclose": "first",
                 "volume": "sum",
                 "turn": "sum",
                 "peTTM": "last",
@@ -125,7 +125,7 @@ class LocalData(FinData):
         end_ts = int(pd.to_datetime(end).timestamp() * 1000) + 24 * 60 * 60 * 1000
 
         query = (
-            "SELECT trade_time, time, open, high, low, close, volume, amount, pre_close "
+            "SELECT trade_time, time, open, high, low, close, volume, amount, preclose "
             "FROM minutes WHERE stock_code=? AND freq=? AND time >= ? AND time < ? ORDER BY time"
         )
         df = pd.read_sql(query, self.conn, params=(stock_code, freq, start_ts, end_ts))
@@ -134,7 +134,7 @@ class LocalData(FinData):
 
         df["datetime"] = pd.to_datetime(df["time"], unit="ms", utc=True)
         df["datetime"] = df["datetime"].dt.tz_convert("Asia/Shanghai").dt.tz_localize(None)
-        df = df.set_index("datetime").drop(columns=["trade_time", "time", "amount", "pre_close"], errors="ignore")
+        df = df.set_index("datetime").drop(columns=["trade_time", "time", "amount", "preclose"], errors="ignore")
         for column in ("open", "high", "low", "close", "volume"):
             df[column] = pd.to_numeric(df[column], errors="coerce")
         df = df.dropna()
@@ -197,7 +197,7 @@ class LocalData(FinData):
         if self._table_exists("daily_k_data"):
             flag = 1 if adj == "hfq" else 2
             query = (
-                "SELECT dk.code AS stock_code, dk.date AS trade_date, dk.open, dk.high, dk.low, dk.close, dk.volume, dk.amount, dk.turn, dk.tradestatus, dk.peTTM "
+                "SELECT dk.code AS stock_code, dk.date AS trade_date, dk.open, dk.high, dk.low, dk.close, dk.preclose, dk.volume, dk.amount, dk.turn, dk.tradestatus, dk.peTTM "
                 "FROM daily_k_data dk JOIN sector_stocks ss ON dk.code = ss.stock_code "
                 "WHERE ss.sector_name=? AND dk.date BETWEEN ? AND ? AND dk.adjustflag=? ORDER BY dk.code, dk.date"
             )

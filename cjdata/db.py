@@ -91,7 +91,7 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         close REAL,
         volume REAL,
         amount REAL,
-        pre_close REAL,
+        preclose REAL,
         UNIQUE(stock_code, freq, time)
     );
     """,
