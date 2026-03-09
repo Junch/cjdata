@@ -298,7 +298,7 @@ class LocalData(FinData):
 
     def get_stock_basic_by_sector(self, sector: str) -> pd.DataFrame:
         df = pd.read_sql(
-            "SELECT sb.stock_code, sb.stock_name, sb.market, sb.total_volume, sb.float_volume "
+            "SELECT sb.stock_code, sb.stock_name, sb.market, sb.total_volume, sb.float_volume, sb.listed_date "
             "FROM stock_basic sb JOIN sector_stocks ss ON sb.stock_code = ss.stock_code WHERE ss.sector_name = ?",
             self.conn,
             params=(sector,),
