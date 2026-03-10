@@ -39,7 +39,7 @@ local_data.close()
 def calculate_market(df):
     valid_turn = df["turn"] != 0
     df.loc[(df["tradestatus"] == 1) & valid_turn, "market"] = (
-        df["amount"] / df["turn"] / 1e8
+        df["amount"] / df["turn"] / 1e6
     )
     return df.sort_values("market", ascending=False)["market"].dropna()
 
@@ -52,7 +52,7 @@ fig, axes = plt.subplots(2, 3, figsize=(18, 8))
 for i, (name, market) in enumerate(markets.items()):
     axes[0, i].hist(market, bins=30, edgecolor="black", alpha=0.7, color=colors[i])
     axes[0, i].set_title(f"{name} 市值分布 (直方图)")
-    axes[0, i].set_xlabel("市值 (100亿)")
+    axes[0, i].set_xlabel("市值 (亿)")
     axes[0, i].set_ylabel("频数")
 
     if HAS_SEABORN:
@@ -65,7 +65,7 @@ for i, (name, market) in enumerate(markets.items()):
         )
         axes[1, i].plot(x_range, kde(x_range), "r-", linewidth=2)
     axes[1, i].set_title(f"{name} 市值分布 (直方图 + KDE)")
-    axes[1, i].set_xlabel("市值 (100亿)")
+    axes[1, i].set_xlabel("市值 (亿)")
     axes[1, i].set_ylabel("密度")
 
 plt.tight_layout()
