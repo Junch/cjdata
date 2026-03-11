@@ -22,6 +22,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 try:  # pragma: no cover - optional dependency
     from xtquant import xtdata as _xtdata  # type: ignore
+    _xtdata.enable_hello = False
     xtdata = _xtdata
 except ImportError:  # pragma: no cover
     xtdata = None
