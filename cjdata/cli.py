@@ -5,7 +5,7 @@ import argparse
 import logging
 from typing import Sequence, Optional
 
-from .builder import CJDataBuilder
+from .builder import CJDataBuilder, SMOKE_TEST_LIMIT
 
 DEFAULT_DB = "stock_data_hfq.db"
 
@@ -30,12 +30,14 @@ def build_parser() -> argparse.ArgumentParser:
     download.add_argument("--include-dupont", action="store_true", help="Download DuPont data")
     download.add_argument("--skip-xtquant", action="store_true", help="Skip xtquant stage")
     download.add_argument("--skip-baostock", action="store_true", help="Skip baostock stage")
+    download.add_argument("--smoke-test", action="store_true", help=f"Smoke-test mode: only download {SMOKE_TEST_LIMIT} stocks to verify correctness")
 
     update = subparsers.add_parser("update", help="Incrementally update existing data")
     update.add_argument("--db", default=DEFAULT_DB, help="SQLite database path")
     update.add_argument("--end-date", help="End date in YYYYMMDD")
     update.add_argument("--skip-xtquant", action="store_true", help="Skip xtquant stage")
     update.add_argument("--skip-baostock", action="store_true", help="Skip baostock stage")
+    update.add_argument("--smoke-test", action="store_true", help=f"Smoke-test mode: only download {SMOKE_TEST_LIMIT} stocks to verify correctness")
 
     return parser
 
@@ -58,12 +60,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             include_dupont=args.include_dupont,
             skip_xtquant=args.skip_xtquant,
             skip_baostock=args.skip_baostock,
+            smoke_test=args.smoke_test,
         )
     elif args.command == "update":
         builder.update(
             end_date=args.end_date,
             skip_xtquant=args.skip_xtquant,
             skip_baostock=args.skip_baostock,
+            smoke_test=args.smoke_test,
         )
     else:
         parser.error(f"Unknown command: {args.command}")

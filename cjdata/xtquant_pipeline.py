@@ -78,14 +78,16 @@ class XtQuantPipeline:
 
     def update_stock_basic(self, sectors: Sequence[str] = ("沪深A股", "沪深指数", "沪深基金")) -> int:
         cursor = self.conn.execute(
-            "SELECT DISTINCT stock_code FROM sector_stocks WHERE sector_name IN ({})".format(
+            "SELECT stock_code, sector_name FROM sector_stocks WHERE sector_name IN ({})".format(
                 ",".join("?" for _ in sectors)
             ),
             tuple(sectors),
         )
-        codes = [row[0] for row in cursor.fetchall()]
+        code_sectors: dict[str, set[str]] = {}
+        for stock_code, sector_name in cursor.fetchall():
+            code_sectors.setdefault(stock_code, set()).add(sector_name)
         rows = []
-        for code in codes:
+        for code, code_sector_set in code_sectors.items():
             detail = xtdata.get_instrument_detail(code)
             if not detail:
                 continue
@@ -94,10 +96,10 @@ class XtQuantPipeline:
                     code,
                     detail.get("InstrumentName"),
                     detail.get("ExchangeID"),
-                    self._determine_board(code, detail),
+                    self._determine_board(code, detail, code_sector_set),
                     detail.get("OpenDate"),
-                    detail.get("TotalShares"),
-                    detail.get("CirculatingShares"),
+                    detail.get("TotalVolume"),
+                    detail.get("FloatVolume"),
                 )
             )
         spec = UpsertSpec(
@@ -300,14 +302,18 @@ class XtQuantPipeline:
         frame = frame[columns]
         return [tuple(row) for row in frame.itertuples(index=False, name=None)]
 
-    def _determine_board(self, code: str, detail: dict) -> Optional[str]:
+    def _determine_board(self, code: str, detail: dict, sectors: set[str] = frozenset()) -> Optional[str]:
+        if "沪深指数" in sectors:
+            return "指数"
+        if "沪深基金" in sectors:
+            return "基金"
         if code.startswith("688"):
             return "科创板"
         if code.startswith("300"):
             return "创业板"
         if code.startswith("8"):
             return "北交所"
-        return detail.get("InstrumentStatus")
+        return "A股主板"
 
     def _next_download_date(self, code: str, start_date: str) -> str:
         cursor = self.conn.execute(

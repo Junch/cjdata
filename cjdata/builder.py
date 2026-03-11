@@ -10,6 +10,8 @@ from .xtquant_pipeline import XtQuantPipeline
 
 logger = logging.getLogger(__name__)
 
+SMOKE_TEST_LIMIT = 5
+
 
 class CJDataBuilder:
     def __init__(self, db_path: str, logger_override: Optional[logging.Logger] = None) -> None:
@@ -23,6 +25,7 @@ class CJDataBuilder:
         include_dupont: bool = False,
         skip_xtquant: bool = False,
         skip_baostock: bool = False,
+        smoke_test: bool = False,
     ) -> None:
         with db.connection(self.db_path) as conn:
             db.ensure_schema(conn)
@@ -35,6 +38,8 @@ class CJDataBuilder:
                     xt_pipeline.update_stock_basic()
                     etf_codes = xt_pipeline.default_etf_codes()
                     if etf_codes:
+                        if smoke_test:
+                            etf_codes = etf_codes[:SMOKE_TEST_LIMIT]
                         xt_logger.info("Downloading ETF daily data for %s codes", len(etf_codes))
                         xt_pipeline.download_daily_for_codes(etf_codes, start_date=start_date, end_date=end_date)
                 except RuntimeError as exc:
@@ -44,11 +49,15 @@ class CJDataBuilder:
                     bs_logger = self.logger.getChild("baostock")
                     bs_pipeline = BaostockPipeline(conn, bs_logger)
                     codes = self._sector_codes(conn, ("沪深A股", "沪深指数"))
+                    if smoke_test:
+                        codes = codes[:SMOKE_TEST_LIMIT]
                     if codes:
                         bs_logger.info("Downloading BA daily data for %s codes", len(codes))
                         bs_pipeline.download_daily_for_codes(codes, start_date=start_date, end_date=end_date)
                     if include_dupont:
                         dupont_codes = self._sector_codes(conn, ("沪深A股",))
+                        if smoke_test:
+                            dupont_codes = dupont_codes[:SMOKE_TEST_LIMIT]
                         if dupont_codes:
                             bs_logger.info("Downloading DuPont data for %s codes", len(dupont_codes))
                             bs_pipeline.download_dupont_for_codes(dupont_codes)
@@ -60,6 +69,7 @@ class CJDataBuilder:
         end_date: Optional[str] = None,
         skip_xtquant: bool = False,
         skip_baostock: bool = False,
+        smoke_test: bool = False,
     ) -> None:
         with db.connection(self.db_path) as conn:
             db.ensure_schema(conn)
@@ -71,6 +81,8 @@ class CJDataBuilder:
                     xt_pipeline.update_stock_basic()
                     etf_codes = xt_pipeline.default_etf_codes()
                     if etf_codes:
+                        if smoke_test:
+                            etf_codes = etf_codes[:SMOKE_TEST_LIMIT]
                         xt_logger.info("Updating ETF daily data for %s codes", len(etf_codes))
                         xt_pipeline.download_daily_for_codes(etf_codes, end_date=end_date)
                 except RuntimeError as exc:
@@ -80,6 +92,8 @@ class CJDataBuilder:
                     bs_logger = self.logger.getChild("baostock")
                     bs_pipeline = BaostockPipeline(conn, bs_logger)
                     codes = self._sector_codes(conn, ("沪深A股", "沪深指数"))
+                    if smoke_test:
+                        codes = codes[:SMOKE_TEST_LIMIT]
                     if codes:
                         bs_logger.info("Updating BA daily data for %s codes", len(codes))
                         bs_pipeline.download_daily_for_codes(codes, end_date=end_date)

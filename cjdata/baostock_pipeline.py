@@ -158,6 +158,8 @@ class BaostockPipeline:
         adjustflag: str,
     ) -> list[tuple[Any, ...]]:
         final_start = max(start_date, self._next_download_date(stock_code, adjustflag))
+        if end_date and final_start > end_date:
+            return []
         start_iso = to_iso_date(final_start)
         end_iso = to_iso_date(end_date) if end_date else ""
         bs_code = _to_baostock_code(stock_code)

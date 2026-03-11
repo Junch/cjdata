@@ -16,21 +16,42 @@ pip install setuptools-scm
 
 ### Download (initial bootstrap)
 ```powershell
-cjdata download --db path\to\data.db --start-date 2008-01-01 --end-date 2025-11-10
+cjdata download --db path\to\data.db --start-date 20080101 --end-date 20251110
 ```
 This pulls xtquant reference data plus baostock daily bars into the SQLite database.
 
+Options:
+- `--start-date` — Start date in `YYYYMMDD` format (default: `20080101`)
+- `--end-date` — End date in `YYYYMMDD` format (default: today)
+- `--include-dupont` — Also download DuPont financial metrics
+- `--skip-xtquant` — Skip the xtquant stage
+- `--skip-baostock` — Skip the baostock stage
+- `--smoke-test` — Only download the first 5 stocks; useful for verifying code changes without a full run
+
 ### Update (incremental refresh)
 ```powershell
-cjdata update --db path\to\data.db --start-date 2025-11-01 --end-date 2025-11-10
+cjdata update --db path\to\data.db --end-date 20251110
 ```
-Only the requested date range is refreshed if newer bars exist.
+Fetches only new bars since the last recorded date for each stock.
 
-### Dupont metrics
+Options:
+- `--end-date` — End date in `YYYYMMDD` format (default: today)
+- `--skip-xtquant` — Skip the xtquant stage
+- `--skip-baostock` — Skip the baostock stage
+- `--smoke-test` — Only download the first 5 stocks; useful for verifying code changes without a full run
+
+### DuPont metrics
 ```powershell
-cjdata download --db path\to\data.db --dupont --start-date 2018-01-01 --end-date 2025-11-10
+cjdata download --db path\to\data.db --include-dupont --start-date 20180101 --end-date 20251110
 ```
-Adds or updates Dupont financial metrics alongside existing price data.
+Adds or updates DuPont financial metrics alongside existing price data.
+
+### Smoke test
+```powershell
+cjdata download --db smoke.db --smoke-test
+cjdata update --db smoke.db --smoke-test
+```
+Limits each pipeline to the first 5 stocks, allowing quick validation that code changes do not introduce regressions.
 
 ## Alternative invocation
 You can run any command via the module entry point:
