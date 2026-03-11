@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
-from typing import Optional, Sequence, Any, TYPE_CHECKING
+from typing import Optional, Sequence, Any, TYPE_CHECKING, AbstractSet
 
 import pandas as pd
 from pandas.api.types import is_datetime64_any_dtype
@@ -76,8 +76,49 @@ class XtQuantPipeline:
             total += insert_ignore(self.conn, "sector_stocks", ("sector_name", "stock_code"), rows)
         self.conn.commit()
         return total
+    
+    def get_industry_sw1(self) -> pd.DataFrame:
+        # 沪深A股的行业分类数据在xtquant里比较完整，其他板块不保证有数据
+        query = ("SELECT stock_code, sector_name from sector_stocks where sector_name like 'SW1%'")
+        df = pd.read_sql(query, self.conn)
+
+        if df.empty:
+            return pd.DataFrame(columns=["stock_code", "industry_sw1"])
+
+        # 只移除末尾的"加权"字样，保留行业名称中的其他字符。
+        df["industry_sw1"] = df["sector_name"].str[3:].str.replace("加权$", "", regex=True)
+        # 同一股票若出现多条 SW1 记录，按 sector_name 稳定排序后取第一条，避免结果不确定。
+        df = df.sort_values(["stock_code", "sector_name"], kind="stable")
+        df = df.drop_duplicates(subset=["stock_code"], keep="first")
+        return df[["stock_code", "industry_sw1"]]
+
+    def get_industry_sw2(self) -> pd.DataFrame:
+        # 沪深A股的行业分类数据在xtquant里比较完整，其他板块不保证有数据
+        query = ("SELECT stock_code, sector_name from sector_stocks where sector_name like 'SW2%'")
+        df = pd.read_sql(query, self.conn)
+
+        if df.empty:
+            return pd.DataFrame(columns=["stock_code", "industry_sw2"])
+
+        # 只移除末尾的"加权"字样，保留行业名称中的其他字符。
+        df["industry_sw2"] = df["sector_name"].str[3:].str.replace("加权$", "", regex=True)
+        # 同一股票若出现多条 SW2 记录，按 sector_name 稳定排序后取第一条，避免结果不确定。
+        df = df.sort_values(["stock_code", "sector_name"], kind="stable")
+        df = df.drop_duplicates(subset=["stock_code"], keep="first")
+        return df[["stock_code", "industry_sw2"]]
 
     def update_stock_basic(self, sectors: Sequence[str] = ("沪深A股", "沪深指数", "沪深基金")) -> int:
+        industry_sw1_by_code = (
+            self.get_industry_sw1()
+            .set_index("stock_code")["industry_sw1"]
+            .to_dict()
+        )
+        industry_sw2_by_code = (
+            self.get_industry_sw2()
+            .set_index("stock_code")["industry_sw2"]
+            .to_dict()
+        )
+
         cursor = self.conn.execute(
             "SELECT stock_code, sector_name FROM sector_stocks WHERE sector_name IN ({})".format(
                 ",".join("?" for _ in sectors)
@@ -101,6 +142,8 @@ class XtQuantPipeline:
                     detail.get("OpenDate"),
                     detail.get("TotalVolume"),
                     detail.get("FloatVolume"),
+                    industry_sw1_by_code.get(code),
+                    industry_sw2_by_code.get(code),
                 )
             )
         spec = UpsertSpec(
@@ -113,6 +156,8 @@ class XtQuantPipeline:
                 "listed_date",
                 "total_volume",
                 "float_volume",
+                "industry_sw1",
+                "industry_sw2",
             ),
             conflict_columns=("stock_code",),
         )
@@ -123,6 +168,8 @@ class XtQuantPipeline:
             "listed_date",
             "total_volume",
             "float_volume",
+            "industry_sw1",
+            "industry_sw2",
         ))
         self.conn.commit()
         return updated
@@ -303,7 +350,7 @@ class XtQuantPipeline:
         frame = frame[columns]
         return [tuple(row) for row in frame.itertuples(index=False, name=None)]
 
-    def _determine_board(self, code: str, detail: dict, sectors: set[str] = frozenset()) -> Optional[str]:
+    def _determine_board(self, code: str, detail: dict, sectors: AbstractSet[str] = frozenset()) -> Optional[str]:
         if "沪深指数" in sectors:
             return "指数"
         if "沪深基金" in sectors:

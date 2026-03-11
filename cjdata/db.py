@@ -17,6 +17,8 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         listed_date TEXT,
         total_volume REAL,
         float_volume REAL,
+        industry_sw1 TEXT,
+        industry_sw2 TEXT,
         updated_at TEXT DEFAULT (strftime('%Y%m%d%H%M%S', 'now', 'localtime'))
     );
     """,
