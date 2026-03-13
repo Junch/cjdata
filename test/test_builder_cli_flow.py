@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 
+import pytest
+
 import cjdata.builder as builder_module
 import cjdata.cli as cli_module
 
@@ -122,6 +124,12 @@ def test_parser_uses_skip_dupont_not_include_dupont():
     assert args.skip_dupont is True
     assert args.skip_daily is True
 
+    args = parser.parse_args(["download", "--only-dupont"])
+    assert args.only_dupont is True
+
+    args = parser.parse_args(["update", "--only-dupont"])
+    assert args.only_dupont is True
+
 
 def test_cli_main_forwards_skip_flags(monkeypatch):
     captured = {}
@@ -165,3 +173,32 @@ def test_download_allows_skip_xtquant_and_forwards(monkeypatch):
     rc = cli_module.main(["download", "--skip-xtquant"])
     assert rc == 0
     assert captured["skip_xtquant"] is True
+
+
+def test_only_dupont_sets_skip_xtquant_and_skip_daily(monkeypatch):
+    captured = {}
+
+    class _BuilderSpy:
+        def __init__(self, _db_path):
+            return None
+
+        def bootstrap(self, **kwargs):
+            captured.update(kwargs)
+
+    monkeypatch.setattr(cli_module, "CJDataBuilder", _BuilderSpy)
+
+    rc = cli_module.main(["download", "--only-dupont"])
+    assert rc == 0
+    assert captured["skip_xtquant"] is True
+    assert captured["skip_daily"] is True
+    assert captured["skip_dupont"] is False
+
+
+def test_only_dupont_conflicts_with_skip_dupont():
+    with pytest.raises(SystemExit):
+        cli_module.main(["download", "--only-dupont", "--skip-dupont"])
+
+
+def test_only_dupont_conflicts_with_skip_baostock():
+    with pytest.raises(SystemExit):
+        cli_module.main(["download", "--only-dupont", "--skip-baostock"])

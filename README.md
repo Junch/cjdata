@@ -27,6 +27,7 @@ Options:
 - `--skip-baostock` — Skip the baostock stage
 - `--skip-daily` — Skip ETF and stock daily market data downloads
 - `--skip-dupont` — Skip DuPont financial metrics download
+- `--only-dupont` — Only download DuPont data (equivalent to `--skip-xtquant --skip-daily`)
 - `--smoke-test` — Only download the first 5 stocks; useful for verifying code changes without a full run
 
 ### Update (incremental refresh)
@@ -41,13 +42,14 @@ Options:
 - `--skip-baostock` — Skip the baostock stage
 - `--skip-daily` — Skip ETF and stock daily market data downloads
 - `--skip-dupont` — Skip DuPont financial metrics download
+- `--only-dupont` — Only update DuPont data (equivalent to `--skip-xtquant --skip-daily`)
 - `--smoke-test` — Only download the first 5 stocks; useful for verifying code changes without a full run
 
 ### DuPont metrics
 ```powershell
-cjdata download --db path\to\data.db --skip-daily --start-date 20180101 --end-date 20251110
+cjdata download --db path\to\data.db --only-dupont --start-date 20180101 --end-date 20251110
 ```
-By default, both daily data and DuPont metrics are downloaded. Use `--skip-daily` to run a DuPont-only refresh.
+By default, both daily data and DuPont metrics are downloaded. Use `--only-dupont` for a DuPont-only refresh.
 
 ### Smoke test
 ```powershell

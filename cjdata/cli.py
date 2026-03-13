@@ -31,6 +31,7 @@ def build_parser() -> argparse.ArgumentParser:
     download.add_argument("--skip-baostock", action="store_true", help="Skip baostock stage")
     download.add_argument("--skip-daily", action="store_true", help="Skip daily market data download")
     download.add_argument("--skip-dupont", action="store_true", help="Skip DuPont data download")
+    download.add_argument("--only-dupont", action="store_true", help="Only download DuPont data (shortcut for --skip-xtquant --skip-daily)")
     download.add_argument("--smoke-test", action="store_true", help=f"Smoke-test mode: only download {SMOKE_TEST_LIMIT} stocks to verify correctness")
 
     update = subparsers.add_parser("update", help="Incrementally update existing data")
@@ -40,6 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
     update.add_argument("--skip-baostock", action="store_true", help="Skip baostock stage")
     update.add_argument("--skip-daily", action="store_true", help="Skip daily market data download")
     update.add_argument("--skip-dupont", action="store_true", help="Skip DuPont data download")
+    update.add_argument("--only-dupont", action="store_true", help="Only update DuPont data (shortcut for --skip-xtquant --skip-daily)")
     update.add_argument("--smoke-test", action="store_true", help=f"Smoke-test mode: only download {SMOKE_TEST_LIMIT} stocks to verify correctness")
 
     return parser
@@ -56,22 +58,30 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     _configure_logging(args.log_level)
     builder = CJDataBuilder(args.db)
 
+    if getattr(args, "only_dupont", False) and args.skip_dupont:
+        parser.error("--only-dupont cannot be combined with --skip-dupont")
+    if getattr(args, "only_dupont", False) and args.skip_baostock:
+        parser.error("--only-dupont cannot be combined with --skip-baostock")
+
+    effective_skip_xtquant = args.skip_xtquant or getattr(args, "only_dupont", False)
+    effective_skip_daily = args.skip_daily or getattr(args, "only_dupont", False)
+
     if args.command == "download":
         builder.bootstrap(
             start_date=args.start_date,
             end_date=args.end_date,
-            skip_xtquant=args.skip_xtquant,
+            skip_xtquant=effective_skip_xtquant,
             skip_baostock=args.skip_baostock,
-            skip_daily=args.skip_daily,
+            skip_daily=effective_skip_daily,
             skip_dupont=args.skip_dupont,
             smoke_test=args.smoke_test,
         )
     elif args.command == "update":
         builder.update(
             end_date=args.end_date,
-            skip_xtquant=args.skip_xtquant,
+            skip_xtquant=effective_skip_xtquant,
             skip_baostock=args.skip_baostock,
-            skip_daily=args.skip_daily,
+            skip_daily=effective_skip_daily,
             skip_dupont=args.skip_dupont,
             smoke_test=args.smoke_test,
         )
