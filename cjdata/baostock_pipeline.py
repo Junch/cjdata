@@ -54,6 +54,16 @@ def _from_baostock_code(code: str) -> str:
     return f"{number}.{market.upper()}"
 
 
+def _dupont_start_from_date(start_date: str) -> tuple[int, int]:
+    normalized = to_yyyymmdd(start_date)
+    year = int(normalized[:4])
+    month = int(normalized[4:6])
+    quarter = (month - 1) // 3 + 1
+    if quarter == 1:
+        return year - 1, 4
+    return year, quarter - 1
+
+
 class BaostockPipeline:
     def __init__(self, conn, logger: Optional[logging.Logger] = None) -> None:
         _require_baostock()
@@ -141,12 +151,25 @@ class BaostockPipeline:
         codes: Sequence[str],
         start_year: int = 2007,
         start_quarter: int = 1,
+        start_date: Optional[str] = None,
     ) -> int:
+        if start_date:
+            start_year, start_quarter = _dupont_start_from_date(start_date)
         total = 0
         with _baostock_session() as session:
-            for code in codes:
+            iterable = (
+                tqdm(
+                    codes,
+                    desc="baostock dupont",
+                    total=len(codes) if hasattr(codes, "__len__") else None,
+                    leave=False,
+                )
+                if tqdm
+                else codes
+            )
+            for code in iterable:
                 total += self._download_single_dupont(session, code, start_year, start_quarter)
-        self.conn.commit()
+                self.conn.commit()
         return total
 
     def _download_single_daily(

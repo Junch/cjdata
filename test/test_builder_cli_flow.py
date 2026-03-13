@@ -39,8 +39,8 @@ class _RecordingBaostockPipeline:
     def download_daily_for_codes(self, codes, start_date=None, end_date=None):
         self.daily_calls.append((tuple(codes), start_date, end_date))
 
-    def download_dupont_for_codes(self, codes):
-        self.dupont_calls.append(tuple(codes))
+    def download_dupont_for_codes(self, codes, start_year=2007, start_quarter=1, start_date=None):
+        self.dupont_calls.append((tuple(codes), start_year, start_quarter, start_date))
 
 
 class _RecordingXtPipeline:
@@ -99,7 +99,7 @@ def test_bootstrap_runs_dupont_when_daily_skipped(monkeypatch):
 
     assert len(created_bs) == 1
     assert created_bs[0].daily_calls == []
-    assert created_bs[0].dupont_calls == [("000001.SZ",)]
+    assert created_bs[0].dupont_calls == [(("000001.SZ",), 2007, 1, "20080101")]
 
 
 def test_update_skips_dupont_when_requested(monkeypatch):
@@ -111,6 +111,16 @@ def test_update_skips_dupont_when_requested(monkeypatch):
     assert len(created_bs) == 1
     assert created_bs[0].daily_calls == []
     assert created_bs[0].dupont_calls == []
+
+
+def test_update_runs_dupont_without_start_date(monkeypatch):
+    created_bs, _ = _patch_builder_dependencies(monkeypatch)
+
+    builder = builder_module.CJDataBuilder("ignored.db")
+    builder.update(skip_xtquant=True, skip_daily=True)
+
+    assert len(created_bs) == 1
+    assert created_bs[0].dupont_calls == [(("000001.SZ",), 2007, 1, None)]
 
 
 def test_parser_uses_skip_dupont_not_include_dupont():

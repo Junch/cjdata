@@ -79,7 +79,7 @@ class CJDataBuilder:
                             dupont_codes = dupont_codes[:SMOKE_TEST_LIMIT]
                         if dupont_codes:
                             bs_logger.info("Downloading DuPont data for %s codes", len(dupont_codes))
-                            bs_pipeline.download_dupont_for_codes(dupont_codes)
+                            bs_pipeline.download_dupont_for_codes(dupont_codes, start_date=start_date)
                             bs_logger.info("DuPont data done")
                         else:
                             bs_logger.info("No codes found for DuPont download")
