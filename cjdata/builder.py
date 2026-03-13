@@ -22,9 +22,10 @@ class CJDataBuilder:
         self,
         start_date: str = "20080101",
         end_date: Optional[str] = None,
-        include_dupont: bool = False,
         skip_xtquant: bool = False,
         skip_baostock: bool = False,
+        skip_daily: bool = False,
+        skip_dupont: bool = False,
         smoke_test: bool = False,
     ) -> None:
         with db.connection(self.db_path) as conn:
@@ -44,9 +45,12 @@ class CJDataBuilder:
                     if etf_codes:
                         if smoke_test:
                             etf_codes = etf_codes[:SMOKE_TEST_LIMIT]
-                        xt_logger.info("Downloading ETF daily data for %s codes", len(etf_codes))
-                        xt_pipeline.download_daily_for_codes(etf_codes, start_date=start_date, end_date=end_date)
-                        xt_logger.info("ETF daily data done")
+                        if not skip_daily:
+                            xt_logger.info("Downloading ETF daily data for %s codes", len(etf_codes))
+                            xt_pipeline.download_daily_for_codes(etf_codes, start_date=start_date, end_date=end_date)
+                            xt_logger.info("ETF daily data done")
+                        else:
+                            xt_logger.info("ETF daily data skipped")
                     else:
                         xt_logger.info("No ETF codes found, skipping ETF daily download")
                 except RuntimeError as exc:
@@ -60,13 +64,16 @@ class CJDataBuilder:
                     codes = self._sector_codes(conn, ("沪深A股", "沪深指数"))
                     if smoke_test:
                         codes = codes[:SMOKE_TEST_LIMIT]
-                    if codes:
-                        bs_logger.info("Downloading daily data for %s codes", len(codes))
-                        bs_pipeline.download_daily_for_codes(codes, start_date=start_date, end_date=end_date)
-                        bs_logger.info("Daily data done")
+                    if skip_daily:
+                        bs_logger.info("Daily data skipped")
                     else:
-                        bs_logger.info("No codes found for daily download")
-                    if include_dupont:
+                        if codes:
+                            bs_logger.info("Downloading daily data for %s codes", len(codes))
+                            bs_pipeline.download_daily_for_codes(codes, start_date=start_date, end_date=end_date)
+                            bs_logger.info("Daily data done")
+                        else:
+                            bs_logger.info("No codes found for daily download")
+                    if not skip_dupont:
                         dupont_codes = self._sector_codes(conn, ("沪深A股",))
                         if smoke_test:
                             dupont_codes = dupont_codes[:SMOKE_TEST_LIMIT]
@@ -74,6 +81,10 @@ class CJDataBuilder:
                             bs_logger.info("Downloading DuPont data for %s codes", len(dupont_codes))
                             bs_pipeline.download_dupont_for_codes(dupont_codes)
                             bs_logger.info("DuPont data done")
+                        else:
+                            bs_logger.info("No codes found for DuPont download")
+                    else:
+                        bs_logger.info("DuPont data skipped")
                 except RuntimeError as exc:
                     self.logger.warning("Skip baostock stage: %s", exc)
             else:
@@ -85,6 +96,8 @@ class CJDataBuilder:
         end_date: Optional[str] = None,
         skip_xtquant: bool = False,
         skip_baostock: bool = False,
+        skip_daily: bool = False,
+        skip_dupont: bool = False,
         smoke_test: bool = False,
     ) -> None:
         with db.connection(self.db_path) as conn:
@@ -102,9 +115,12 @@ class CJDataBuilder:
                     if etf_codes:
                         if smoke_test:
                             etf_codes = etf_codes[:SMOKE_TEST_LIMIT]
-                        xt_logger.info("Updating ETF daily data for %s codes", len(etf_codes))
-                        xt_pipeline.download_daily_for_codes(etf_codes, end_date=end_date)
-                        xt_logger.info("ETF daily data done")
+                        if not skip_daily:
+                            xt_logger.info("Updating ETF daily data for %s codes", len(etf_codes))
+                            xt_pipeline.download_daily_for_codes(etf_codes, end_date=end_date)
+                            xt_logger.info("ETF daily data done")
+                        else:
+                            xt_logger.info("ETF daily data skipped")
                     else:
                         xt_logger.info("No ETF codes found, skipping ETF daily update")
                 except RuntimeError as exc:
@@ -118,12 +134,27 @@ class CJDataBuilder:
                     codes = self._sector_codes(conn, ("沪深A股", "沪深指数"))
                     if smoke_test:
                         codes = codes[:SMOKE_TEST_LIMIT]
-                    if codes:
-                        bs_logger.info("Updating daily data for %s codes", len(codes))
-                        bs_pipeline.download_daily_for_codes(codes, end_date=end_date)
-                        bs_logger.info("Daily data done")
+                    if skip_daily:
+                        bs_logger.info("Daily data skipped")
                     else:
-                        bs_logger.info("No codes found for daily update")
+                        if codes:
+                            bs_logger.info("Updating daily data for %s codes", len(codes))
+                            bs_pipeline.download_daily_for_codes(codes, end_date=end_date)
+                            bs_logger.info("Daily data done")
+                        else:
+                            bs_logger.info("No codes found for daily update")
+                    if not skip_dupont:
+                        dupont_codes = self._sector_codes(conn, ("沪深A股",))
+                        if smoke_test:
+                            dupont_codes = dupont_codes[:SMOKE_TEST_LIMIT]
+                        if dupont_codes:
+                            bs_logger.info("Updating DuPont data for %s codes", len(dupont_codes))
+                            bs_pipeline.download_dupont_for_codes(dupont_codes)
+                            bs_logger.info("DuPont data done")
+                        else:
+                            bs_logger.info("No codes found for DuPont update")
+                    else:
+                        bs_logger.info("DuPont data skipped")
                 except RuntimeError as exc:
                     self.logger.warning("Skip baostock update: %s", exc)
             else:

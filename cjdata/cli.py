@@ -27,9 +27,10 @@ def build_parser() -> argparse.ArgumentParser:
     download.add_argument("--db", default=DEFAULT_DB, help="SQLite database path")
     download.add_argument("--start-date", default="20080101", help="Start date in YYYYMMDD")
     download.add_argument("--end-date", help="End date in YYYYMMDD")
-    download.add_argument("--include-dupont", action="store_true", help="Download DuPont data")
     download.add_argument("--skip-xtquant", action="store_true", help="Skip xtquant stage")
     download.add_argument("--skip-baostock", action="store_true", help="Skip baostock stage")
+    download.add_argument("--skip-daily", action="store_true", help="Skip daily market data download")
+    download.add_argument("--skip-dupont", action="store_true", help="Skip DuPont data download")
     download.add_argument("--smoke-test", action="store_true", help=f"Smoke-test mode: only download {SMOKE_TEST_LIMIT} stocks to verify correctness")
 
     update = subparsers.add_parser("update", help="Incrementally update existing data")
@@ -37,6 +38,8 @@ def build_parser() -> argparse.ArgumentParser:
     update.add_argument("--end-date", help="End date in YYYYMMDD")
     update.add_argument("--skip-xtquant", action="store_true", help="Skip xtquant stage")
     update.add_argument("--skip-baostock", action="store_true", help="Skip baostock stage")
+    update.add_argument("--skip-daily", action="store_true", help="Skip daily market data download")
+    update.add_argument("--skip-dupont", action="store_true", help="Skip DuPont data download")
     update.add_argument("--smoke-test", action="store_true", help=f"Smoke-test mode: only download {SMOKE_TEST_LIMIT} stocks to verify correctness")
 
     return parser
@@ -57,9 +60,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         builder.bootstrap(
             start_date=args.start_date,
             end_date=args.end_date,
-            include_dupont=args.include_dupont,
             skip_xtquant=args.skip_xtquant,
             skip_baostock=args.skip_baostock,
+            skip_daily=args.skip_daily,
+            skip_dupont=args.skip_dupont,
             smoke_test=args.smoke_test,
         )
     elif args.command == "update":
@@ -67,6 +71,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             end_date=args.end_date,
             skip_xtquant=args.skip_xtquant,
             skip_baostock=args.skip_baostock,
+            skip_daily=args.skip_daily,
+            skip_dupont=args.skip_dupont,
             smoke_test=args.smoke_test,
         )
     else:

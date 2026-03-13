@@ -23,9 +23,10 @@ This pulls xtquant reference data plus baostock daily bars into the SQLite datab
 Options:
 - `--start-date` — Start date in `YYYYMMDD` format (default: `20080101`)
 - `--end-date` — End date in `YYYYMMDD` format (default: today)
-- `--include-dupont` — Also download DuPont financial metrics
 - `--skip-xtquant` — Skip the xtquant stage
 - `--skip-baostock` — Skip the baostock stage
+- `--skip-daily` — Skip ETF and stock daily market data downloads
+- `--skip-dupont` — Skip DuPont financial metrics download
 - `--smoke-test` — Only download the first 5 stocks; useful for verifying code changes without a full run
 
 ### Update (incremental refresh)
@@ -38,13 +39,15 @@ Options:
 - `--end-date` — End date in `YYYYMMDD` format (default: today)
 - `--skip-xtquant` — Skip the xtquant stage
 - `--skip-baostock` — Skip the baostock stage
+- `--skip-daily` — Skip ETF and stock daily market data downloads
+- `--skip-dupont` — Skip DuPont financial metrics download
 - `--smoke-test` — Only download the first 5 stocks; useful for verifying code changes without a full run
 
 ### DuPont metrics
 ```powershell
-cjdata download --db path\to\data.db --include-dupont --start-date 20180101 --end-date 20251110
+cjdata download --db path\to\data.db --skip-daily --start-date 20180101 --end-date 20251110
 ```
-Adds or updates DuPont financial metrics alongside existing price data.
+By default, both daily data and DuPont metrics are downloaded. Use `--skip-daily` to run a DuPont-only refresh.
 
 ### Smoke test
 ```powershell
