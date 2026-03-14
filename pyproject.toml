@@ -35,3 +35,6 @@ include = ["cjdata"]
 root = "."
 version_scheme = "post-release"
 local_scheme = "node-and-date"
+
+[tool.pytest.ini_options]
+addopts = "-s"

@@ -1,6 +1,7 @@
 """Tests for LocalData read-only access."""
 
 import os
+import math
 import pytest
 import pandas as pd
 from cjdata import LocalData, CodeFormat
@@ -146,3 +147,32 @@ def test_table_exists(local_data):
     # daily_k_data should exist if DB is populated
     exists = local_data._table_exists("daily_k_data")
     assert isinstance(exists, bool)
+
+
+def test_hs300_sharpe_ratio(local_data):
+    """Test calculating annualized Sharpe ratio for HS300 index from 20080101 to 20260101."""
+    RISK_FREE_RATE = 0.015  # 1.5% annual risk-free rate
+
+    df = local_data.get_daily("000300.SH", "20080101", "20260101", adj="hfq")
+
+    if df.empty:
+        pytest.skip("No HS300 data available for the specified date range")
+
+    daily_returns = df["close"].pct_change().dropna()
+
+    if daily_returns.empty:
+        pytest.skip("Insufficient data to calculate returns")
+
+    mean_daily_return = daily_returns.mean()
+    std_daily_return = daily_returns.std()
+
+    if std_daily_return == 0:
+        pytest.skip("Standard deviation is zero, cannot calculate Sharpe ratio")
+
+    daily_rf = RISK_FREE_RATE / 242
+    sharpe_ratio = (mean_daily_return - daily_rf) / std_daily_return * math.sqrt(242)
+    print(f"Annualized Sharpe Ratio for HS300 (2021-2026): {sharpe_ratio:.4f}")
+
+    assert isinstance(sharpe_ratio, float)
+    assert not math.isnan(sharpe_ratio)
+    assert not math.isinf(sharpe_ratio)
