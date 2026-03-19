@@ -143,7 +143,7 @@ class BaostockPipeline:
                         "source",
                     ),
                 )
-        self.conn.commit()
+                self.conn.commit()
         return total
 
     def download_dupont_for_codes(
@@ -333,6 +333,30 @@ class BaostockPipeline:
         latest_dt = datetime.strptime(latest, "%Y%m%d")
         next_dt = latest_dt + pd.Timedelta(days=1)
         return next_dt.strftime("%Y%m%d")
+
+    def _min_download_date(self, code: str, adjustflag: str) -> str:
+        cursor = self.conn.execute(
+            "SELECT MIN(date) FROM daily_k_data WHERE code=? AND adjustflag=?",
+            (code, int(adjustflag)),
+        )
+        earliest = cursor.fetchone()[0]
+        if not earliest:
+            return "20080101"
+        return earliest
+    
+    def _check_data_exists(self, code: str, date: str) -> bool:
+        cursor = self.conn.execute(
+            "SELECT EXISTS (SELECT 1 FROM daily_k_data WHERE code=? AND date=?)",
+            (code, date),
+        )
+        exists = cursor.fetchone()[0]
+        return bool(exists)
+        # Alternative approach if EXISTS is not supported:
+        # cursor = self.conn.execute(
+        #     "SELECT 1 FROM daily_k_data WHERE code=? AND date=? LIMIT 1",
+        #     (code, date),
+        # )
+        # return cursor.fetchone() is not None
 
     def _latest_dupont_quarter(self, code: str) -> Optional[str]:
         cursor = self.conn.execute(
